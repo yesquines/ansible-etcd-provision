@@ -1,0 +1,87 @@
+- name: "[SSL] Create directory certs dir"
+  file:
+    path: "/etc/etcd/certs"
+    owner: etcd
+    group: etcd
+    state: directory
+  register: ssl_certs_dir
+
+- name: "[Auth] Create CA private key"
+  openssl_privatekey:
+    path: "{{ ssl_certs_dir.path }}/ca-key.pem"
+    owner: etcd
+    group: etcd
+    size: 2048
+    return_content: true
+  register: ca_privatekey
+  when: inventory_hostname == play_hosts[0]
+
+- name: "[Auth] Create CA CSR certificate"
+  openssl_csr: 
+    path: "{{ ssl_certs_dir.path }}/ca-csr.pem"
+    owner: etcd
+    group: etcd
+    privatekey_path: "{{ ca_privatekey.filename }}"
+    basic_constraints:
+    - 'CA:TRUE'
+    common_name: "etcd-ca"
+  register: ca_csr
+  when: inventory_hostname == play_hosts[0]
+
+- name: "[Auth] Create CA certificate"
+  openssl_certificate:
+    path: "{{ ssl_certs_dir.path }}/ca.pem"
+    owner: etcd
+    group: etcd
+    privatekey_path: "{{ ca_privatekey.filename }}"
+    csr_path: "{{ ca_csr.filename }}"
+    provider: selfsigned
+    return_content: true
+  register: ca_crt
+  when: inventory_hostname == play_hosts[0]
+
+- name: "[Auth] Replicate CA certificate"
+  copy:
+    dest: "{{ ssl_certs_dir.path }}/{{ item.file }}"
+    owner: etcd
+    group: etcd
+    content: "{{ item.content }}"
+  loop:
+  - { file: "ca-key.pem", content: "{{ hostvars[play_hosts[0]]['ca_privatekey']['privatekey'] }}" }
+  - {file: "ca.pem", content: "{{ hostvars[play_hosts[0]]['ca_crt']['certificate'] }}"}
+  loop_control:
+    label: "{{ item.file }}"
+  when: inventory_hostname != play_hosts[0]
+
+- name: "[Auth] Create etcd private key"
+  openssl_privatekey:
+    path: "{{ ssl_certs_dir.path }}/{{ ansible_hostname }}-etcd-key.pem"
+    owner: etcd
+    group: etcd
+    size: 2048
+  register: etcd_privatekey
+
+- name: "[Auth] Create etcd CSR certificate"
+  openssl_csr: 
+    path: "{{ ssl_certs_dir.path }}/{{ ansible_hostname }}-ca-csr.pem"
+    owner: etcd
+    group: etcd
+    privatekey_path: "{{ etcd_privatekey.filename }}"
+    common_name: "etcd-{{ ansible_hostname }}"
+    subject_alt_name: 
+    - "DNS:localhost"
+    - "IP:127.0.0.1"
+    - "DNS:etcd-{{ ansible_hostname }}" 
+    - "IP:{{ ansible_ipaddress }}"
+  register: etcd_csr
+
+- name: "[Auth] Sign the etcd certificate"
+  openssl_certificate:
+    path: "{{ ssl_certs_dir.path }}/{{ ansible_hostname }}-etcd-crt.pem"
+    owner: etcd
+    group: etcd
+    csr_path: "{{ etcd_csr.filename }}"
+    ownca_path: "{{ ssl_certs_dir.path }}/ca.pem"
+    ownca_privatekey_path: "{{ ssl_certs_dir.path }}/ca-key.pem"
+    provider: ownca
+

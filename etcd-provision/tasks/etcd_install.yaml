@@ -1,0 +1,45 @@
+- name: "[Install] Create etcd user"
+  user: 
+    name: etcd
+    group: etcd
+    shell: /sbin/nologin
+    system: true
+    state: present
+  register: etcd_user
+
+- name: "[Install] Ensure folders"
+  file: 
+    path: "{{ item.dir }}"
+    owner: "{{ item.owner }}"
+    group: "{{ item.group }}"
+    mode: "{{ item.mode }}"
+    recurse: true
+    state: directory 
+  loop: 
+  - {dir: "/etc/etcd", owner: "root", group: "root", mode: "0755"}
+  - {dir: "{{ etcd_data_dir }}", owner: "{{ etcd_user.name }}", group: "{{ etcd_user.group }}", mode: "0700"}
+  loop_control:
+    label: "{{ item.dir }}"
+
+- name: "[Install] Download etcd binaries"
+  get_url:
+    url: "https://github.com/etcd-io/etcd/releases/download/{{ etcd_version }}/etcd-{{ etcd_version }}-linux-amd64.tar.gz"
+    dest: /tmp/etcd-linux-amd64.tar.gz
+  register: etcd_binaries
+
+- name: "[Install] Unpack etcd binaries"
+  unarchive: 
+    src: "{{ etcd_binaries.dest }}"
+    dest: /tmp/
+    remote_src: yes
+  register: etcd_binaries_folder
+
+- name: "[Install] Move etcd binaries"
+  copy:
+    src: "{{ etcd_binaries_folder.dest }}/{{ item }}"
+    dest: /usr/local/bin/
+  loop:
+  - "etcd"
+  - "etcdctl"
+  - "etcdutl"
+

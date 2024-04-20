@@ -1,0 +1,30 @@
+{% set cluster = [] %}
+{% for host in groups['etcd_machines'] %}
+{% if etcd_secure %}
+{{ cluster.append( "${NODE"+loop.index|string+"_NAME}=https://${NODE"+loop.index|string+"_IP}:2380" ) }}
+{% else %}
+{{ cluster.append( "${NODE"+loop.index|string+"_NAME}=http://${NODE"+loop.index|string+"_IP}:2380" ) }}
+{% endif %}
+{% endfor %}
+
+[Unit]
+Description=etcd key-value store
+Documentation=https://github.com/etcd-io/etcd
+After=network.target
+
+[Service]
+User=etcd
+Type=notify
+Restart=on-failure
+LimitNOFILE=40000
+EnvironmentFile=/etc/etcd/etcd.conf
+{% if etcd_secure %}
+{% set etcd_url = "https" %}
+ExecStart=/usr/local/bin/etcd --name ${SELF_NAME} --data-dir ${DATA_DIR} --log-level ${LOG_LEVEL} --quota-backend-bytes 8589934592 --auto-compaction-retention 3 --trusted-ca-file ${TRUSTED_CA} --cert-file ${CERT_FILE} --key-file ${CERT_FILE_KEY} --auto-tls=false --client-cert-auth --listen-client-urls {{ etcd_url }}://${SELF_IP}:2379,{{ etcd_url }}://localhost:2379 --advertise-client-urls {{ etcd_url }}://${SELF_IP}:2379,{{ etcd_url }}://localhost:2379 --peer-trusted-ca-file ${PEER_TRUSTED_CA} --peer-cert-file ${PEER_CERT_FILE} --peer-key-file ${PEER_CERT_FILE_KEY} --listen-peer-urls {{ etcd_url }}://${SELF_IP}:2380 --initial-advertise-peer-urls {{ etcd_url }}://${SELF_IP}:2380 --initial-cluster '{{ cluster|join(',') }}' --initial-cluster-token {{ etcd_cluster_token }} --initial-cluster-state new
+{% else %}
+{% set etcd_url = "http" %}
+ExecStart=/usr/local/bin/etcd --name ${SELF_NAME} --data-dir ${DATA_DIR} --log-level ${LOG_LEVEL} --quota-backend-bytes 8589934592 --auto-compaction-retention 3 --listen-client-urls {{ etcd_url }}://${SELF_IP}:2379,{{ etcd_url }}://localhost:2379 --advertise-client-urls {{ etcd_url }}://${SELF_IP}:2379,{{ etcd_url }}://localhost:2379 --listen-peer-urls {{ etcd_url }}://${SELF_IP}:2380 --initial-advertise-peer-urls {{ etcd_url }}://${SELF_IP}:2380 --initial-cluster '{{ cluster|join(',') }}' --initial-cluster-token {{ etcd_cluster_token }} --initial-cluster-state new
+{% endif %}
+
+[Install]
+WantedBy=multi-user.target

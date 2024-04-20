@@ -1,0 +1,8 @@
+---
+- hosts: etcd_machines
+  become: yes
+  vars:
+    etcd_secure: true
+    etcd_cluster_token: #ADD RANDOM TOKEN 
+  roles:
+    - etcd-provision

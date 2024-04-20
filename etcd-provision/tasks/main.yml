@@ -1,0 +1,16 @@
+---
+# tasks file for etcd-provision
+#
+
+- name: "[Check] Validate etcd binarie"
+  command: which etcd
+  ignore_errors: true
+  register: etcd_validation
+
+- include: etcd_install.yaml
+  when: etcd_validation.failed
+
+- include: ssl.yaml
+  when: kvdb_secure
+
+- include: etcd_config.yaml

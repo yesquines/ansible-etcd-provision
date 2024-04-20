@@ -1,0 +1,7 @@
+---
+# defaults file for etcd-provision
+
+etcd_version: "v3.5.8"
+etcd_data_dir: "/var/lib/etcd"
+etcd_cluster_token: None  
+etcd_secure: false

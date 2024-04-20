@@ -1,0 +1,7 @@
+---
+# handlers file for etcd-provision
+- name: etcd_restart 
+  systemd:
+    name: etcd
+    daemon_reload: true
+    state: restarted

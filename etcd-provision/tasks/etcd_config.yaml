@@ -1,0 +1,21 @@
+- name: "[Configuration] Ensure EnvironmentFile"
+  template:
+    src: etcd.conf.j2
+    dest: /etc/etcd/etcd.conf
+    backup: yes
+  notify: etcd_restart
+
+- name: "[Configuration] Ensure ETCD service unit"
+  template:
+    src: etcd.service.j2
+    dest: /etc/systemd/system/etcd.service
+    backup: yes
+  notify: etcd_restart
+
+- name: "[Configuration] Ensure service is started and enabled"
+  systemd:
+    name: etcd
+    daemon_reload: true
+    enabled: true
+    state: started
+

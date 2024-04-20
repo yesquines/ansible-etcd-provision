@@ -1,0 +1,23 @@
+# etcd nodes
+{% for host in groups['etcd_machines'] %}
+NODE{{ loop.index }}_IP={{ hostvars[host]['ansible_ipaddress'] }}
+NODE{{ loop.index }}_NAME={{ hostvars[host]['ansible_hostname'] }}
+{% endfor %}
+
+# this node
+SELF_IP={{ ansible_ipaddress }}
+SELF_NAME={{ ansible_hostname }}
+
+# etcd config
+DATA_DIR={{ etcd_data_dir }}
+LOG_LEVEL=info
+
+{% if kvdb_secure %}
+# tls config
+TRUSTED_CA={{ ssl_certs_dir.path }}/ca.pem
+CERT_FILE={{ ssl_certs_dir.path }}/{{ ansible_hostname }}-kvdb-crt.pem
+CERT_FILE_KEY={{ ssl_certs_dir.path }}/{{ ansible_hostname }}-kvdb-key.pem
+PEER_TRUSTED_CA={{ ssl_certs_dir.path }}/ca.pem
+PEER_CERT_FILE={{ ssl_certs_dir.path }}/{{ ansible_hostname }}-kvdb-crt.pem
+PEER_CERT_FILE_KEY={{ ssl_certs_dir.path }}/{{ ansible_hostname }}-kvdb-key.pem
+{% endif %}
